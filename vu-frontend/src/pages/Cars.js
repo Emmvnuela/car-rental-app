@@ -472,7 +472,7 @@ function Cars() {
   useEffect(() => {
     setLoading(true);
     axios
-      .get('http://localhost:5000/api/cars', { params: filters })
+      .get('http://localhost:5000/api/cars/cars', { params: filters })
       .then((res) => {
         setCars(res.data.cars);
         setTotal(res.data.total);

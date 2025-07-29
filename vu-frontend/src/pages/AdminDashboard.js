@@ -390,7 +390,7 @@ function AdminDashboard() {
           axiosInstance.get('/users'),
           axiosInstance.get('/reservations'),
           axiosInstance.get('/payments'),
-          axiosInstance.get('/cars')
+          axiosInstance.get('/cars/cars')
         ]);
 
         setUsers(usersRes.data);

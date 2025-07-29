@@ -700,7 +700,7 @@ function AdminCars() {
   const fetchCars = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/api/cars', { params: filters });
+      const response = await axios.get('http://localhost:5000/api/cars/cars', { params: filters });
       setCars(response.data.cars);
       setTotal(response.data.total);
     } catch (error) {

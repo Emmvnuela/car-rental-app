@@ -29,6 +29,9 @@ const adminDocumentsRoutes = require('./routes/adminDocuments');
 const contratsLocationRoutes = require('./routes/contratLocationRoutes');
 const emailTestRoutes = require('./routes/emailTest');
 const chatRoutes = require('./routes/chatRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+
+
 
 // Utilisation des routes
 app.use('/api/users', userRoutes);
@@ -47,6 +50,7 @@ app.use('/api/admin-documents', adminDocumentsRoutes);
 app.use('/api/contrats-location', contratsLocationRoutes);
 app.use('/api', emailTestRoutes);
 app.use('/api/messages', chatRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Fichiers statiques
 app.use('/uploads', express.static('uploads'));

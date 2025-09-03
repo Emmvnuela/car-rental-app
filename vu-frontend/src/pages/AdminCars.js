@@ -24,6 +24,9 @@ import {
   Settings,
   Shield
 } from 'lucide-react';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 
 const styles = {
   container: {
@@ -710,15 +713,21 @@ function AdminCars() {
     }
   };
 
-  const fetchStats = async () => {
+const fetchStats = async () => {
   try {
-    const token = localStorage.getItem('token'); // Assure-toi que le token est bien stocké après connexion
+    const token = localStorage.getItem('token');
     const response = await axios.get('http://localhost:5000/api/cars/stats', {
       headers: {
         Authorization: `Bearer ${token}`
       }
     });
-    setStats(response.data);
+    
+    // Mise à jour des stats en utilisant les vraies données de disponibilité
+    setStats({
+      total: response.data.total,
+      available: response.data.disponibles,  // ← Assure-toi que le backend retourne bien "disponibles"
+      unavailable: response.data.indisponibles // ← et "indisponibles"
+    });
   } catch (error) {
     console.error('Erreur lors du chargement des statistiques:', error);
   }
@@ -781,10 +790,10 @@ function AdminCars() {
 
       fetchCars();
       fetchStats();
-      alert('Voiture supprimée avec succès');
+      toast.info('Voiture supprimée avec succès');
     } catch (error) {
       console.error('Erreur lors de la suppression:', error.response?.data || error.message);
-      alert('Erreur lors de la suppression de la voiture');
+      toast.error('Erreur lors de la suppression de la voiture');
     }
   }
 };
@@ -806,7 +815,7 @@ function AdminCars() {
 
   // Vérification simple
   if (!payload.brand || !payload.model || !payload.year || !payload.price_per_day) {
-    alert('Tous les champs obligatoires doivent être remplis');
+    toast.info('Tous les champs obligatoires doivent être remplis');
     return;
   }
 
@@ -820,17 +829,17 @@ function AdminCars() {
   try {
     if (modalMode === 'add') {
       await axios.post('http://localhost:5000/api/cars', payload, config);
-      alert('Voiture ajoutée avec succès');
+      toast.success('Voiture ajoutée avec succès');
     } else if (modalMode === 'edit') {
       await axios.put(`http://localhost:5000/api/cars/${selectedCar.id}`, payload, config);
-      alert('Voiture modifiée avec succès');
+      toast.success('Voiture modifiée avec succès');
     }
     setShowModal(false);
     fetchCars();
     fetchStats();
   } catch (error) {
     console.error('Erreur lors de la sauvegarde:', error.response?.data || error.message);
-    alert('Erreur lors de la sauvegarde');
+    toast.error('Erreur lors de la sauvegarde');
   }
 };
 

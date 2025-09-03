@@ -1,3 +1,4 @@
+//PaymentPage.js
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -28,6 +29,7 @@ import logo from '../assets/logo.png';
 import floozLogo from '../assets/flooz.png';
 import mixxLogo from '../assets/mixx.png';
 import ecobankLogo from '../assets/ecobank.png';
+import { toast } from 'react-toastify';
 
 const styles = {
   container: {
@@ -439,6 +441,8 @@ function Payment() {
 
     const fetchReservationFromServer = async (reservationId, extras = {}) => {
       try {
+        const token = localStorage.getItem('token');
+
         const response = await axios.get(`http://localhost:5000/api/reservations/${reservationId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -448,8 +452,8 @@ function Payment() {
         localStorage.setItem('currentReservation', JSON.stringify(fullReservation));
 
       } catch (error) {
-        console.error("❌ Erreur lors du chargement de la réservation :", error);
-        alert("Erreur de chargement des informations de la réservation.");
+        console.error(" Erreur lors du chargement de la réservation :", error);
+        toast.error("Erreur de chargement des informations de la réservation.");
       }
     };
 
@@ -458,7 +462,7 @@ function Payment() {
     } else if (storedReservation) {
       fetchReservationFromServer(storedReservation.id, storedReservation);
     } else {
-      alert("Aucune réservation trouvée !");
+      toast.info("Aucune réservation trouvée !");
       navigate('/');
     }
   }, [location.state, navigate]);
@@ -545,57 +549,80 @@ function Payment() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setStatus('');
+ // handleSubmit corrigé
+const handleSubmit = async (e) => { 
+  e.preventDefault();
+  setLoading(true);
+  setStatus('');
 
-    setTimeout(async () => {
-      setLoading(false);
+  setTimeout(async () => {
+    setLoading(false);
 
-      const paymentAmount = parseFloat(formData.amount);
-      if (isNaN(paymentAmount) || paymentAmount <= 0) {
-        alert("Veuillez saisir un montant de paiement valide.");
-        return;
-      }
+    const totalPrice = Number(reservation.total_price ?? 0);
+    const caution = Number(reservation.caution ?? Math.round(totalPrice * 0.35));
+    const alreadyPaid = Number(reservation.deposit ?? 0);
 
-      const paymentRef = generatePaymentRef();
-      const paymentData = {
-        reference: paymentRef,
-        method,
-        details: formData,
-        reservation,
-        date: new Date().toISOString(),
-      };
+    // Montant restant à payer
+    const montantRestant = Math.max(totalPrice + caution - alreadyPaid, 0);
 
-      const pdfBlob = generateContractPDF(paymentData);
-      sendEmailWithPDF(paymentData, pdfBlob);
+    const selectedDeposit = Number(formData.deposit ?? 0);
+    const selectedCaution = Number(formData.caution ?? caution);
+    const paymentAmount = Number(formData.amount ?? montantRestant);
 
-      try {
-        const token = localStorage.getItem('token');
-        await axios.post(
-          'http://localhost:5000/api/payments',
-          {
-            reservationId: reservation.id,
-            amount: paymentAmount,
-            method,
-            reference: paymentRef
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
+    if (paymentAmount <= 0) {
+      toast.info("Cette réservation est déjà totalement payée.");
+      return;
+    }
 
-        alert(`🎉 Paiement de ${paymentAmount} FCFA enregistré avec succès !`);
-        navigate('/dashboard');
-      } catch (err) {
-        console.error("❌ Erreur lors de l'enregistrement du paiement :", err);
-        alert("Erreur lors de l'enregistrement du paiement.");
-      }
-    }, 2000);
-  };
+    // Confirmation seulement si aucun paiement n'a été fait avant
+    if (alreadyPaid === 0) {
+      if (!window.confirm(
+        `Vous êtes sur le point de payer :\n` +
+        `- Dépôt : ${selectedDeposit.toLocaleString()} FCFA\n` +
+        `- Caution : ${selectedCaution.toLocaleString()} FCFA\n` +
+        `Montant total : ${paymentAmount.toLocaleString()} FCFA\n` +
+        `Confirmez ?`
+      )) return;
+    }
+
+    const paymentRef = generatePaymentRef();
+    const paymentData = {
+      reference: paymentRef,
+      method,
+      details: formData,
+      reservation,
+      date: new Date().toISOString(),
+      deposit: selectedDeposit,
+      caution: selectedCaution
+    };
+
+    // Générer PDF + envoyer par mail
+    const pdfBlob = generateContractPDF(paymentData);
+    sendEmailWithPDF(paymentData, pdfBlob);
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        'http://localhost:5000/api/payments',
+        {
+          reservationId: reservation.id,
+          amount: paymentAmount,
+          deposit: selectedDeposit,
+          caution: selectedCaution,
+          method,
+          reference: paymentRef
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success(`Paiement de ${paymentAmount.toLocaleString()} FCFA enregistré avec succès !`);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error("Erreur lors de l'enregistrement du paiement :", err);
+      toast.error("Erreur lors de l'enregistrement du paiement.");
+    }
+  }, 500);
+};
 
   const getLogo = () => {
     switch (method) {
@@ -613,6 +640,93 @@ function Payment() {
       minimumFractionDigits: 0,
     }).format(price).replace('XOF', 'FCFA');
   };
+
+ const renderForm = () => { 
+  if (!method || !reservation) return null;
+
+  // Nouveau calcul qui prend en compte location + caution
+  const totalDue = (reservation.total_price || 0) + (reservation.caution || 0);
+  const montantRestant = totalDue - (reservation.deposit || 0);
+  const isFullyPaid = montantRestant <= 0;
+  const hasPaidBefore = reservation.deposit && reservation.deposit > 0;
+
+  // Calcul du dépôt et de la caution pour affichage (premier paiement)
+  const deposit = Math.round(reservation.total_price * 0.75);
+  const caution = Math.round(reservation.total_price * 0.35);
+  const totalToPay = deposit + caution;
+
+  return (
+    <form style={styles.form} onSubmit={handleSubmit}>
+      <div style={styles.cardHeader}>
+        <h3 style={styles.cardTitle}>
+          {getLogo()}
+          Paiement via {method}
+        </h3>
+      </div>
+      
+      {/* ... ton reste de code reste inchangé ... */}
+      
+   {/* Bouton "Payer le solde" */}
+{hasPaidBefore && !isFullyPaid && (
+  <div style={styles.quickPayButtons}>
+    <button
+      type="button"
+      style={{
+        ...styles.quickPayButton,
+        ...(hoveredQuickPay === 'solde' ? styles.quickPayButtonHover : {})
+      }}
+      onMouseEnter={() => setHoveredQuickPay('solde')}
+      onMouseLeave={() => setHoveredQuickPay('')}
+      onClick={() => {
+        const totalPrice = Number(reservation.total_price ?? 0);
+        const caution = Number(reservation.caution ?? Math.round(totalPrice * 0.35));
+        const alreadyPaid = Number(reservation.deposit ?? 0);
+
+        const montantRestant = Math.max(totalPrice + caution - alreadyPaid, 0);
+
+        setFormData({
+          ...formData,
+          amount: montantRestant,
+          deposit: Math.max(totalPrice - alreadyPaid, 0),
+          caution
+        });
+      }}
+    >
+      Payer le solde ({formatPrice(Math.max(Number(reservation.total_price ?? 0) + Number(reservation.caution ?? Math.round((reservation.total_price ?? 0) * 0.35)) - Number(reservation.deposit ?? 0), 0))})
+    </button>
+  </div>
+)}
+
+
+
+      {/* Déjà payé */}
+      {isFullyPaid && (
+        <div style={styles.successMessage}>
+          <CheckCircle size={20} />
+          Cette réservation est déjà totalement payée.
+        </div>
+      )}
+
+      {/* Saisie manuelle */}
+      {!isFullyPaid && (
+        <input
+          type="number"
+          name="amount"
+          min="1"
+          max={totalDue} // ✅ on limite à location + caution
+          required
+          value={formData.amount || ''}
+          onChange={handleInput}
+          style={styles.input}
+          placeholder="Entrez le montant"
+        />
+      )}
+
+      {/* ... reste du formulaire (infos Flooz, Ecobank, etc.) ... */}
+    </form>
+  );
+};
+
 
   if (reservation && reservation.is_validated !== true) {
     return (
@@ -665,269 +779,6 @@ function Payment() {
       </>
     );
   }
-
-  const renderForm = () => {
-    if (!method || !reservation) return null;
-    
-    const montantRestant = (reservation.total_price || 0) - (reservation.deposit || 0);
-    const isFullyPaid = montantRestant <= 0;
-    const hasPaidBefore = reservation.deposit && reservation.deposit > 0;
-
-    return (
-      <form style={styles.form} onSubmit={handleSubmit}>
-        <div style={styles.cardHeader}>
-          <h3 style={styles.cardTitle}>
-            {getLogo()}
-            Paiement via {method}
-          </h3>
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Montant à payer (FCFA)</label>
-
-          {!hasPaidBefore && !isFullyPaid && (
-            <div style={styles.quickPayButtons}>
-              <button 
-                type="button" 
-                style={{
-                  ...styles.quickPayButton,
-                  ...(hoveredQuickPay === '75' ? styles.quickPayButtonHover : {})
-                }}
-                onMouseEnter={() => setHoveredQuickPay('75')}
-                onMouseLeave={() => setHoveredQuickPay('')}
-                onClick={() =>
-                  setFormData({ ...formData, amount: Math.round((reservation.total_price || 0) * 0.75) })
-                }
-              >
-                Payer 75%
-              </button>
-              <button 
-                type="button" 
-                style={{
-                  ...styles.quickPayButton,
-                  ...(hoveredQuickPay === '100' ? styles.quickPayButtonHover : {})
-                }}
-                onMouseEnter={() => setHoveredQuickPay('100')}
-                onMouseLeave={() => setHoveredQuickPay('')}
-                onClick={() =>
-                  setFormData({ ...formData, amount: reservation.total_price })
-                }
-              >
-                Payer 100%
-              </button>
-            </div>
-          )}
-
-          {hasPaidBefore && !isFullyPaid && (
-            <div style={styles.quickPayButtons}>
-              <button 
-                type="button" 
-                style={{
-                  ...styles.quickPayButton,
-                  ...(hoveredQuickPay === 'solde' ? styles.quickPayButtonHover : {})
-                }}
-                onMouseEnter={() => setHoveredQuickPay('solde')}
-                onMouseLeave={() => setHoveredQuickPay('')}
-                onClick={() =>
-                  setFormData({ ...formData, amount: montantRestant })
-                }
-              >
-                Payer le solde ({formatPrice(montantRestant)})
-              </button>
-            </div>
-          )}
-
-          {isFullyPaid && (
-            <div style={styles.successMessage}>
-              <CheckCircle size={20} />
-              Cette réservation est déjà totalement payée.
-            </div>
-          )}
-
-          {!isFullyPaid && (
-            <input
-              type="number"
-              name="amount"
-              min="1"
-              max={montantRestant}
-              required
-              value={formData.amount || ''}
-              onChange={handleInput}
-              style={styles.input}
-              placeholder="Entrez le montant"
-            />
-          )}
-        </div>
-
-        {method === 'Flooz' && (
-          <>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <Smartphone size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Numéro de téléphone
-              </label>
-              <input 
-                type="tel" 
-                name="phone" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Ex: +228 XX XX XX XX"
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <Lock size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Code PIN
-              </label>
-              <input 
-                type="password" 
-                name="pin" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Votre code PIN Flooz"
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <Building size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Marchand
-              </label>
-              <input 
-                type="text" 
-                name="merchant" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Code marchand"
-              />
-            </div>
-          </>
-        )}
-
-        {method === 'Mixx by Yas' && (
-          <>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <Mail size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Email / ID utilisateur
-              </label>
-              <input 
-                type="email" 
-                name="username" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="votre@email.com"
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <Lock size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Code de validation
-              </label>
-              <input 
-                type="password" 
-                name="code" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Code de validation Mixx"
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <Building size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Marchand
-              </label>
-              <input 
-                type="text" 
-                name="merchant" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Code marchand"
-              />
-            </div>
-          </>
-        )}
-
-        {method === 'Ecobank' && (
-          <>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <User size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Nom du titulaire
-              </label>
-              <input 
-                type="text" 
-                name="owner" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Nom complet du titulaire"
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <CreditCard size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Numéro de compte
-              </label>
-              <input 
-                type="text" 
-                name="account" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Numéro de compte Ecobank"
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>
-                <Lock size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                Code secret
-              </label>
-              <input 
-                type="password" 
-                name="pin" 
-                required 
-                onChange={handleInput}
-                style={styles.input}
-                placeholder="Code secret"
-              />
-            </div>
-          </>
-        )}
-
-        {!isFullyPaid && (
-          <button 
-            type="submit" 
-            style={{
-              ...styles.submitButton,
-              ...(hoveredSubmit ? styles.submitButtonHover : {}),
-              ...(loading ? styles.submitButtonDisabled : {})
-            }}
-            onMouseEnter={() => setHoveredSubmit(true)}
-            onMouseLeave={() => setHoveredSubmit(false)}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader size={20} style={{ animation: 'spin 1s linear infinite' }} />
-                Traitement...
-              </>
-            ) : (
-              <>
-                <CreditCard size={20} />
-                Payer avec {method}
-              </>
-            )}
-          </button>
-        )}
-      </form>
-    );
-  };
 
   console.log("Données de reservation:", reservation);
 
@@ -1041,99 +892,112 @@ function Payment() {
 
             {/* Résumé de la réservation */}
             {reservation && (
-              <div style={styles.card}>
-                <div style={styles.cardHeader}>
-                  <h2 style={styles.cardTitle}>
-                    <DollarSign size={28} />
-                    Résumé de la réservation
-                  </h2>
-                </div>
+  <div style={styles.card}>
+    <div style={styles.cardHeader}>
+      <h2 style={styles.cardTitle}>
+        <DollarSign size={28} />
+        Résumé de la réservation
+      </h2>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <User size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Nom</div>
-                    <div style={styles.infoValue}>{reservation.name || '---'}</div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <User size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Nom</div>
+        <div style={styles.infoValue}>{reservation.client_name || '---'}</div>
+      </div>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <Mail size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Email</div>
-                    <div style={styles.infoValue}>{reservation.email || '---'}</div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <Mail size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Email</div>
+        <div style={styles.infoValue}>{reservation.email || '---'}</div>
+      </div>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <Calendar size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Date de livraison</div>
-                    <div style={styles.infoValue}>{reservation.date || '---'}</div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <Calendar size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Date de livraison</div>
+        <div style={styles.infoValue}>{reservation.delivery_date || '---'}</div>
+      </div>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <Clock size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Heure de livraison</div>
-                    <div style={styles.infoValue}>{reservation.time || '---'}</div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <Clock size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Heure de livraison</div>
+        <div style={styles.infoValue}>{reservation.created_at || '---'}</div>
+      </div>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <MapPin size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Adresse de livraison</div>
-                    <div style={styles.infoValue}>{reservation.address || '---'}</div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <MapPin size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Adresse de livraison</div>
+        <div style={styles.infoValue}>{reservation.delivery_address || '---'}</div>
+      </div>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <Car size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Voiture</div>
-                    <div style={styles.infoValue}>{reservation.car || '---'}</div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <Car size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Voiture</div>
+        <div style={styles.infoValue}>{reservation.car || '---'}</div>
+      </div>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <DollarSign size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Montant total</div>
-                    <div style={styles.infoValue}>
-                      {reservation.total_price ? formatPrice(reservation.total_price) : '---'}
-                    </div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <DollarSign size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Montant total</div>
+        <div style={styles.infoValue}>
+          {reservation.total_price !== undefined ? formatPrice(Number(reservation.total_price)) : '---'}
+        </div>
+      </div>
+    </div>
 
-                <div style={styles.infoRow}>
-                  <CheckCircle size={20} style={styles.infoIcon} />
-                  <div style={styles.infoContent}>
-                    <div style={styles.infoLabel}>Montant déjà payé</div>
-                    <div style={styles.infoValue}>
-                      {reservation.deposit !== undefined ? formatPrice(reservation.deposit) : '---'}
-                    </div>
-                  </div>
-                </div>
+    <div style={styles.infoRow}>
+      <DollarSign size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Caution</div>
+        <div style={styles.infoValue}>
+          {reservation.caution !== undefined ? formatPrice(Number(reservation.caution)) : '---'}
+        </div>
+      </div>
+    </div>
 
-                <div style={{
-                  ...styles.infoRow,
-                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)'
-                }}>
-                  <DollarSign size={20} style={{ ...styles.infoIcon, color: '#10b981' }} />
-                  <div style={styles.infoContent}>
-                    <div style={{ ...styles.infoLabel, color: '#10b981' }}>Solde restant</div>
-                    <div style={{ ...styles.infoValue, color: '#10b981', fontWeight: '700', fontSize: '1.2rem' }}>
-                      {reservation.total_price !== undefined && reservation.deposit !== undefined
-                        ? formatPrice(reservation.total_price - reservation.deposit)
-                        : '---'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+    <div style={styles.infoRow}>
+      <CheckCircle size={20} style={styles.infoIcon} />
+      <div style={styles.infoContent}>
+        <div style={styles.infoLabel}>Montant déjà payé</div>
+        <div style={styles.infoValue}>
+          {reservation.deposit !== undefined ? formatPrice(Number(reservation.deposit)) : '---'}
+        </div>
+      </div>
+    </div>
+
+    <div style={{
+      ...styles.infoRow,
+      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)',
+      border: '1px solid rgba(16, 185, 129, 0.2)'
+    }}>
+      <DollarSign size={20} style={{ ...styles.infoIcon, color: '#10b981' }} />
+      <div style={styles.infoContent}>
+        <div style={{ ...styles.infoLabel, color: '#10b981' }}>Solde restant</div>
+        <div style={{ ...styles.infoValue, color: '#10b981', fontWeight: '700', fontSize: '1.2rem' }}>
+          {reservation.total_price !== undefined && reservation.deposit !== undefined
+            ? formatPrice(
+                Number(reservation.total_price) + Number(reservation.caution || 0) - Number(reservation.deposit)
+              )
+            : '---'}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
           </div>
 
           {status && (

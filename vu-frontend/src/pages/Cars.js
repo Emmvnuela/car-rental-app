@@ -1,8 +1,10 @@
-// Cars.js
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Car, Calendar, Search, CheckCircle, XCircle, Sparkles, Filter, ArrowLeft, ArrowRight, Zap, Star } from 'lucide-react';
+import { Car, Calendar, Search, CheckCircle, XCircle, Sparkles, Filter, ArrowLeft, ArrowRight, Zap, Star, Bell } from 'lucide-react';
+import axiosInstance from '../api/axiosInstance';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const styles = {
   container: {
@@ -22,45 +24,66 @@ const styles = {
     left: '0',
     right: '0',
     bottom: '0',
-    background: 'radial-gradient(circle at 30% 70%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)',
+    background: `
+      radial-gradient(circle at 20% 30%, rgba(120, 119, 198, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 40% 90%, rgba(59, 130, 246, 0.1) 0%, transparent 50%)
+    `,
+    pointerEvents: 'none',
+  },
+  particleField: {
+    position: 'absolute',
+    top: '0',
+    left: '0',
+    right: '0',
+    bottom: '0',
+    background: 'url("data:image/svg+xml,%3Csvg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23ffffff" fill-opacity="0.03"%3E%3Ccircle cx="20" cy="20" r="1"/%3E%3C/g%3E%3C/svg%3E")',
+    animation: 'float 20s ease-in-out infinite',
     pointerEvents: 'none',
   },
   contentWrapper: {
     position: 'relative',
     zIndex: 1,
     padding: '2rem',
-    maxWidth: '1400px',
+    maxWidth: '1600px',
     margin: '0 auto',
   },
   header: {
     marginBottom: '3rem',
     textAlign: 'center',
-    padding: '3rem 2rem',
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%)',
-    backdropFilter: 'blur(20px)',
-    borderRadius: '24px',
+    padding: '4rem 2rem',
+    background: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%),
+      linear-gradient(45deg, transparent 30%, rgba(120, 119, 198, 0.1) 50%, transparent 70%)
+    `,
+    backdropFilter: 'blur(25px)',
+    borderRadius: '32px',
     color: 'white',
-    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
+    boxShadow: `
+      0 25px 50px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -1px 0 rgba(120, 119, 198, 0.1)
+    `,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     position: 'relative',
     overflow: 'hidden',
     animation: 'float 6s ease-in-out infinite',
   },
   headerGlow: {
     position: 'absolute',
-    top: '-50%',
-    left: '-50%',
-    width: '200%',
-    height: '200%',
-    background: 'radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%)',
-    animation: 'rotate 20s linear infinite',
+    top: '-100%',
+    left: '-100%',
+    width: '300%',
+    height: '300%',
+    background: 'conic-gradient(from 0deg, transparent, rgba(120, 119, 198, 0.1), transparent, rgba(255, 255, 255, 0.05), transparent)',
+    animation: 'rotate 30s linear infinite',
   },
   title: {
-    fontSize: '3.5rem',
-    fontWeight: '800',
+    fontSize: '4rem',
+    fontWeight: '900',
     margin: '0',
-    textShadow: '0 4px 20px rgba(0,0,0,0.3)',
-    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+    textShadow: '0 0 30px rgba(255,255,255,0.3)',
+    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, rgba(120, 119, 198, 0.8) 100%)',
     backgroundClip: 'text',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
@@ -69,127 +92,192 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '1rem',
+    gap: '1.5rem',
+    letterSpacing: '-0.02em',
   },
   subtitle: {
-    fontSize: '1.3rem',
-    opacity: '0.95',
-    margin: '1rem 0 0 0',
+    fontSize: '1.4rem',
+    opacity: '0.9',
+    margin: '1.5rem 0 0 0',
     fontWeight: '300',
     position: 'relative',
     zIndex: 2,
-    textShadow: '0 2px 10px rgba(0,0,0,0.2)',
+    textShadow: '0 0 20px rgba(255,255,255,0.2)',
+    letterSpacing: '0.05em',
   },
   sparkleIcon: {
     position: 'absolute',
-    top: '1rem',
-    right: '1rem',
+    top: '2rem',
+    right: '2rem',
     color: 'rgba(255, 255, 255, 0.6)',
     animation: 'sparkle 2s ease-in-out infinite',
   },
   filtersSection: {
-    marginBottom: '3rem',
-    padding: '2.5rem',
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)',
-    backdropFilter: 'blur(20px)',
-    borderRadius: '24px',
-    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
+    marginBottom: '4rem',
+    padding: '3rem',
+    background: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%),
+      linear-gradient(45deg, rgba(120, 119, 198, 0.05) 0%, transparent 50%, rgba(59, 130, 246, 0.05) 100%)
+    `,
+    backdropFilter: 'blur(25px)',
+    borderRadius: '28px',
+    boxShadow: `
+      0 25px 50px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 0 1px rgba(255, 255, 255, 0.05)
+    `,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     position: 'relative',
     overflow: 'hidden',
     animation: 'slideUp 0.8s ease-out',
   },
+  filtersGlow: {
+    position: 'absolute',
+    top: '-50%',
+    left: '-50%',
+    width: '200%',
+    height: '200%',
+    background: 'radial-gradient(circle, rgba(120, 119, 198, 0.1) 0%, transparent 70%)',
+    animation: 'rotate 25s linear infinite',
+    pointerEvents: 'none',
+  },
   filtersTitle: {
-    fontSize: '1.5rem',
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: '2rem',
+    fontSize: '1.8rem',
+    fontWeight: '800',
+    color: 'white',
+    marginBottom: '2.5rem',
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
+    gap: '1rem',
+    position: 'relative',
+    zIndex: 2,
+    textShadow: '0 0 20px rgba(255,255,255,0.3)',
   },
   filterIcon: {
-    padding: '0.5rem',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '12px',
+    padding: '0.75rem',
+    background: 'linear-gradient(135deg, rgba(120, 119, 198, 0.8) 0%, rgba(59, 130, 246, 0.8) 100%)',
+    borderRadius: '16px',
     color: 'white',
-    boxShadow: '0 8px 16px rgba(102, 126, 234, 0.3)',
+    boxShadow: `
+      0 8px 32px rgba(120, 119, 198, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+    `,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
   },
   filtersContainer: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '1.5rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '2rem',
+    position: 'relative',
+    zIndex: 2,
   },
   inputWrapper: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    padding: '1rem 1.25rem',
-    background: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: '16px',
-    border: '2px solid rgba(203, 213, 224, 0.3)',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    backdropFilter: 'blur(10px)',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    gap: '1rem',
+    padding: '1.25rem 1.5rem',
+    background: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%),
+      linear-gradient(45deg, rgba(120, 119, 198, 0.03) 0%, transparent 100%)
+    `,
+    borderRadius: '20px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    backdropFilter: 'blur(15px)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    position: 'relative',
+    overflow: 'hidden',
   },
   inputWrapperFocus: {
-    borderColor: '#3b82f6',
-    boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.1), 0 8px 20px rgba(0, 0, 0, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: 'rgba(120, 119, 198, 0.5)',
+    boxShadow: `
+      0 0 0 2px rgba(120, 119, 198, 0.2),
+      0 12px 40px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1)
+    `,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     transform: 'translateY(-2px)',
   },
   inputIcon: {
-    color: '#667eea',
+    color: 'rgba(120, 119, 198, 0.8)',
     flexShrink: 0,
+    filter: 'drop-shadow(0 0 8px rgba(120, 119, 198, 0.3))',
   },
   input: {
     border: 'none',
     outline: 'none',
     background: 'transparent',
-    fontSize: '1rem',
+    fontSize: '1.1rem',
     fontWeight: '500',
-    color: '#1e293b',
+    color: 'white',
     width: '100%',
     '::placeholder': {
-      color: '#64748b',
+      color: 'rgba(255, 255, 255, 0.5)',
     },
   },
   carsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '2rem',
-    marginBottom: '3rem',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
+    gap: '2.5rem',
+    marginBottom: '4rem',
+    position: 'relative',
   },
   carCard: {
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%)',
-    borderRadius: '24px',
+    background: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%),
+      linear-gradient(45deg, rgba(120, 119, 198, 0.05) 0%, transparent 50%, rgba(59, 130, 246, 0.05) 100%)
+    `,
+    borderRadius: '32px',
     padding: '0',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    boxShadow: `
+      0 20px 60px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1)
+    `,
+    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
     position: 'relative',
     overflow: 'hidden',
-    backdropFilter: 'blur(10px)',
+    backdropFilter: 'blur(20px)',
     animation: 'slideUp 0.8s ease-out',
   },
   carCardHover: {
-    transform: 'translateY(-12px) scale(1.02)',
-    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.2)',
+    transform: 'translateY(-20px) scale(1.03)',
+    boxShadow: `
+      0 40px 80px rgba(0, 0, 0, 0.25),
+      0 0 0 1px rgba(120, 119, 198, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+    `,
+  },
+  carCardGlow: {
+    position: 'absolute',
+    top: '-100%',
+    left: '-100%',
+    width: '300%',
+    height: '300%',
+    background: 'conic-gradient(from 0deg, transparent, rgba(120, 119, 198, 0.1), transparent)',
+    animation: 'rotate 20s linear infinite',
+    opacity: '0',
+    transition: 'opacity 0.5s ease',
+  },
+  carCardGlowActive: {
+    opacity: '1',
   },
   carImageContainer: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: '24px 24px 0 0',
-    height: '220px',
+    borderRadius: '32px 32px 0 0',
+    height: '240px',
   },
   carImage: {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+    filter: 'brightness(1.1) contrast(1.1)',
   },
   carImageHover: {
-    transform: 'scale(1.1)',
+    transform: 'scale(1.15)',
+    filter: 'brightness(1.2) contrast(1.2)',
   },
   carImageOverlay: {
     position: 'absolute',
@@ -197,110 +285,156 @@ const styles = {
     left: '0',
     right: '0',
     bottom: '0',
-    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%)',
+    background: `
+      linear-gradient(135deg, rgba(120, 119, 198, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%),
+      radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.3) 100%)
+    `,
     opacity: '0',
-    transition: 'opacity 0.3s ease',
+    transition: 'opacity 0.4s ease',
   },
   carImageOverlayHover: {
     opacity: '1',
   },
   availableBadge: {
     position: 'absolute',
-    top: '1rem',
-    right: '1rem',
-    padding: '0.5rem 1rem',
-    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    top: '1.5rem',
+    right: '1.5rem',
+    padding: '0.75rem 1.25rem',
+    background: `
+      linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%),
+      linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%)
+    `,
     color: 'white',
     borderRadius: '50px',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+    fontSize: '0.9rem',
+    fontWeight: '700',
+    boxShadow: `
+      0 8px 32px rgba(16, 185, 129, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+    `,
     display: 'flex',
     alignItems: 'center',
-    gap: '0.25rem',
+    gap: '0.5rem',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    textShadow: '0 2px 8px rgba(0,0,0,0.3)',
   },
   premiumBadge: {
     position: 'absolute',
-    top: '1rem',
-    left: '1rem',
-    padding: '0.5rem 1rem',
-    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    top: '1.5rem',
+    left: '1.5rem',
+    padding: '0.75rem 1.25rem',
+    background: `
+      linear-gradient(135deg, rgba(245, 158, 11, 0.9) 0%, rgba(217, 119, 6, 0.9) 100%),
+      linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%)
+    `,
     color: 'white',
     borderRadius: '50px',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+    fontSize: '0.9rem',
+    fontWeight: '700',
+    boxShadow: `
+      0 8px 32px rgba(245, 158, 11, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+    `,
     display: 'flex',
     alignItems: 'center',
-    gap: '0.25rem',
+    gap: '0.5rem',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    textShadow: '0 2px 8px rgba(0,0,0,0.3)',
   },
   carContent: {
-    padding: '2rem',
+    padding: '2.5rem',
+    position: 'relative',
   },
   carTitle: {
-    fontSize: '1.5rem',
-    fontWeight: '800',
-    color: '#1e293b',
-    marginBottom: '1rem',
-    background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+    fontSize: '1.75rem',
+    fontWeight: '900',
+    color: 'white',
+    marginBottom: '1.5rem',
+    background: 'linear-gradient(135deg, #ffffff 0%, rgba(120, 119, 198, 0.8) 100%)',
     backgroundClip: 'text',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 20px rgba(255,255,255,0.3)',
+    letterSpacing: '-0.01em',
   },
   carDetails: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
-    marginBottom: '1.5rem',
+    gap: '1rem',
+    marginBottom: '2rem',
   },
   carDetail: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    color: '#64748b',
-    fontWeight: '500',
+    gap: '0.75rem',
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '600',
+    fontSize: '1rem',
   },
   priceContainer: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '1.5rem',
+    marginBottom: '2rem',
+    padding: '1.5rem',
+    background: `
+      linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%),
+      linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%)
+    `,
+    borderRadius: '20px',
+    border: '1px solid rgba(16, 185, 129, 0.2)',
+    backdropFilter: 'blur(10px)',
   },
   price: {
-    fontSize: '1.75rem',
-    fontWeight: '800',
+    fontSize: '2rem',
+    fontWeight: '900',
     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     backgroundClip: 'text',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
+    textShadow: '0 0 20px rgba(16, 185, 129, 0.5)',
   },
   priceLabel: {
-    fontSize: '0.875rem',
-    color: '#64748b',
-    fontWeight: '500',
+    fontSize: '1rem',
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '600',
   },
   bookButton: {
     width: '100%',
-    padding: '1rem 2rem',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    padding: '1.25rem 2.5rem',
+    background: `
+      linear-gradient(135deg, rgba(59, 130, 246, 0.8) 0%, rgba(29, 78, 216, 0.8) 100%),
+      linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%)
+    `,
     color: 'white',
     border: 'none',
-    borderRadius: '16px',
-    fontSize: '1.1rem',
-    fontWeight: '700',
+    borderRadius: '20px',
+    fontSize: '1.2rem',
+    fontWeight: '800',
     cursor: 'pointer',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.5rem',
-    boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)',
+    gap: '0.75rem',
+    boxShadow: `
+      0 12px 40px rgba(59, 130, 246, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+    `,
     position: 'relative',
     overflow: 'hidden',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    textShadow: '0 2px 8px rgba(0,0,0,0.3)',
   },
   bookButtonHover: {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 12px 30px rgba(59, 130, 246, 0.4)',
+    transform: 'translateY(-4px)',
+    boxShadow: `
+      0 20px 60px rgba(59, 130, 246, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3)
+    `,
   },
   bookButtonGlow: {
     position: 'absolute',
@@ -308,104 +442,166 @@ const styles = {
     left: '-100%',
     width: '100%',
     height: '100%',
-    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
-    transition: 'left 0.5s',
+    background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+    transition: 'left 0.6s',
   },
   bookButtonGlowActive: {
     left: '100%',
   },
   emptyState: {
     textAlign: 'center',
-    padding: '4rem 2rem',
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
-    backdropFilter: 'blur(20px)',
-    borderRadius: '24px',
-    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
+    padding: '5rem 3rem',
+    background: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%),
+      linear-gradient(45deg, rgba(120, 119, 198, 0.05) 0%, transparent 100%)
+    `,
+    backdropFilter: 'blur(25px)',
+    borderRadius: '32px',
+    boxShadow: `
+      0 25px 50px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1)
+    `,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
   },
   emptyStateIcon: {
-    fontSize: '4rem',
-    marginBottom: '1.5rem',
+    fontSize: '5rem',
+    marginBottom: '2rem',
     opacity: '0.6',
     animation: 'bounce 2s infinite',
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.6)',
+    filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.2))',
   },
   emptyStateText: {
-    fontSize: '1.3rem',
-    color: '#64748b',
-    fontWeight: '500',
+    fontSize: '1.5rem',
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '600',
+    textShadow: '0 0 15px rgba(255,255,255,0.2)',
   },
   paginationContainer: {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: '1.5rem',
-    marginTop: '3rem',
-    padding: '2rem',
-    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
-    backdropFilter: 'blur(20px)',
-    borderRadius: '20px',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
+    gap: '2rem',
+    marginTop: '4rem',
+    padding: '2.5rem',
+    background: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%),
+      linear-gradient(45deg, rgba(120, 119, 198, 0.05) 0%, transparent 100%)
+    `,
+    backdropFilter: 'blur(25px)',
+    borderRadius: '28px',
+    boxShadow: `
+      0 20px 50px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1)
+    `,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
   },
   paginationButton: {
-    padding: '1rem 2rem',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    padding: '1.25rem 2.5rem',
+    background: `
+      linear-gradient(135deg, rgba(59, 130, 246, 0.8) 0%, rgba(29, 78, 216, 0.8) 100%),
+      linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%)
+    `,
     color: 'white',
     border: 'none',
-    borderRadius: '16px',
-    fontSize: '1rem',
-    fontWeight: '700',
+    borderRadius: '20px',
+    fontSize: '1.1rem',
+    fontWeight: '800',
     cursor: 'pointer',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
-    boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)',
-    minWidth: '150px',
+    gap: '0.75rem',
+    boxShadow: `
+      0 12px 40px rgba(59, 130, 246, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2)
+    `,
+    minWidth: '180px',
     justifyContent: 'center',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    textShadow: '0 2px 8px rgba(0,0,0,0.3)',
   },
   paginationButtonHover: {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 12px 30px rgba(59, 130, 246, 0.4)',
+    transform: 'translateY(-4px)',
+    boxShadow: `
+      0 20px 60px rgba(59, 130, 246, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3)
+    `,
   },
   paginationButtonDisabled: {
-    background: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+    background: `
+      linear-gradient(135deg, rgba(148, 163, 184, 0.3) 0%, rgba(100, 116, 139, 0.3) 100%),
+      linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%)
+    `,
     cursor: 'not-allowed',
     transform: 'none',
-    boxShadow: '0 4px 12px rgba(148, 163, 184, 0.2)',
+    boxShadow: '0 8px 20px rgba(148, 163, 184, 0.2)',
+    opacity: '0.5',
   },
   pageInfo: {
-    fontSize: '1.1rem',
-    fontWeight: '600',
-    color: '#1e293b',
-    padding: '1rem 2rem',
-    background: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: '16px',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.5)',
+    fontSize: '1.2rem',
+    fontWeight: '700',
+    color: 'white',
+    padding: '1.25rem 2rem',
+    background: `
+      linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%),
+      linear-gradient(45deg, rgba(120, 119, 198, 0.1) 0%, transparent 100%)
+    `,
+    borderRadius: '20px',
+    backdropFilter: 'blur(15px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    textShadow: '0 0 15px rgba(255,255,255,0.3)',
   },
   loadingContainer: {
     display: 'flex',
+    flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: '50vh',
+    minHeight: '60vh',
     color: 'white',
-    fontSize: '1.5rem',
-    fontWeight: '600',
+    fontSize: '1.8rem',
+    fontWeight: '700',
+    textShadow: '0 0 20px rgba(255,255,255,0.3)',
   },
   loadingSpinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid rgba(255, 255, 255, 0.3)',
-    borderTop: '4px solid white',
+    width: '60px',
+    height: '60px',
+    border: '4px solid rgba(255, 255, 255, 0.2)',
+    borderTop: '4px solid rgba(120, 119, 198, 0.8)',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
-    marginRight: '1rem',
+    marginBottom: '2rem',
+    filter: 'drop-shadow(0 0 20px rgba(120, 119, 198, 0.5))',
   },
+  unavailableBadge: {
+  position: 'absolute',
+  top: '1.5rem',
+  right: '1.5rem',
+  padding: '0.75rem 1.25rem',
+  background: `
+    linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 0.9) 100%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%)
+  `,
+  color: 'white',
+  borderRadius: '50px',
+  fontSize: '0.9rem',
+  fontWeight: '700',
+  boxShadow: `
+    0 8px 32px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2)
+  `,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  backdropFilter: 'blur(10px)',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+},
+
 };
 
-// Animations CSS
+// Animations CSS améliorées
 const cssAnimations = `
   @keyframes gradientShift {
     0% { background-position: 0% 50%; }
@@ -414,8 +610,9 @@ const cssAnimations = `
   }
   
   @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33% { transform: translateY(-15px) rotate(1deg); }
+    66% { transform: translateY(-8px) rotate(-1deg); }
   }
   
   @keyframes rotate {
@@ -424,20 +621,22 @@ const cssAnimations = `
   }
   
   @keyframes sparkle {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.2); }
+    0%, 100% { opacity: 0.6; transform: scale(1) rotate(0deg); }
+    25% { opacity: 1; transform: scale(1.2) rotate(90deg); }
+    50% { opacity: 0.8; transform: scale(1.1) rotate(180deg); }
+    75% { opacity: 1; transform: scale(1.3) rotate(270deg); }
   }
   
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(50px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
   
   @keyframes bounce {
-    0%, 20%, 53%, 80%, 100% { transform: translateY(0); }
-    40%, 43% { transform: translateY(-30px); }
-    70% { transform: translateY(-15px); }
-    90% { transform: translateY(-4px); }
+    0%, 20%, 53%, 80%, 100% { transform: translateY(0) scale(1); }
+    40%, 43% { transform: translateY(-30px) scale(1.05); }
+    70% { transform: translateY(-15px) scale(1.02); }
+    90% { transform: translateY(-4px) scale(1.01); }
   }
   
   @keyframes spin {
@@ -446,8 +645,17 @@ const cssAnimations = `
   }
   
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.02); }
+  }
+
+  input::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+  }
+  
+  select option {
+    background: #1e293b !important;
+    color: white !important;
   }
 `;
 
@@ -468,6 +676,43 @@ function Cars() {
     page: 1,
     limit: 6,
   });
+  // 2. Ajoutez ces states dans le composant
+const [notificationRequests, setNotificationRequests] = useState(new Set());
+const [loadingNotifications, setLoadingNotifications] = useState(new Set());
+
+// 3. Ajoutez cette fonction pour gérer les demandes de notification
+const handleNotificationRequest = async (car) => {
+  const user = JSON.parse(localStorage.getItem('loggedInUser'));
+  
+  if (!user) {
+    toast.info('Veuillez vous connecter pour recevoir des notifications');
+    navigate('/login');
+    return;
+  }
+
+  setLoadingNotifications(prev => new Set([...prev, car.id]));
+
+  try {
+    await axiosInstance.post('/notifications/request', {
+      userId: user.id,
+      carId: car.id,
+      carName: `${car.brand} ${car.model}`,
+      message: `Demande de notification pour la disponibilité de ${car.brand} ${car.model}`
+    });
+
+    setNotificationRequests(prev => new Set([...prev, car.id]));
+    toast.info('Demande enregistrée ! Vous serez notifié dès que ce véhicule sera disponible.');
+  } catch (error) {
+    console.error('Erreur lors de la demande de notification:', error);
+    toast.error('Une erreur s\'est produite. Veuillez réessayer.');
+  } finally {
+    setLoadingNotifications(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(car.id);
+      return newSet;
+    });
+  }
+};
 
   useEffect(() => {
     setLoading(true);
@@ -503,24 +748,26 @@ function Cars() {
       <style>{cssAnimations}</style>
       <div style={styles.container}>
         <div style={styles.backgroundOverlay}></div>
+        <div style={styles.particleField}></div>
         <div style={styles.contentWrapper}>
           <div style={styles.header}>
             <div style={styles.headerGlow}></div>
-            <Sparkles size={32} style={styles.sparkleIcon} />
+            <Sparkles size={40} style={styles.sparkleIcon} />
             <h1 style={styles.title}>
-              <Car size={40} />
+              <Car size={50} />
               Nos Voitures Disponibles
             </h1>
-            <p style={styles.subtitle}>Découvrez notre flotte premium de véhicules</p>
+            <p style={styles.subtitle}>Découvrez notre flotte premium de véhicules futuristes</p>
           </div>
 
           {/* Section Filtres */}
           <div style={styles.filtersSection}>
+            <div style={styles.filtersGlow}></div>
             <h3 style={styles.filtersTitle}>
               <div style={styles.filterIcon}>
-                <Filter size={20} />
+                <Filter size={24} />
               </div>
-              Filtres de Recherche
+              Filtres de Recherche Avancée
             </h3>
             
             <div style={styles.filtersContainer}>
@@ -530,7 +777,7 @@ function Cars() {
                   ...(focusedInput === 'search' ? styles.inputWrapperFocus : {})
                 }}
               >
-                <Search size={20} style={styles.inputIcon} />
+                <Search size={24} style={styles.inputIcon} />
                 <input
                   type="text"
                   name="search"
@@ -549,7 +796,7 @@ function Cars() {
                   ...(focusedInput === 'year' ? styles.inputWrapperFocus : {})
                 }}
               >
-                <Calendar size={20} style={styles.inputIcon} />
+                <Calendar size={24} style={styles.inputIcon} />
                 <input
                   type="number"
                   name="year"
@@ -569,10 +816,10 @@ function Cars() {
                 }}
               >
                 {filters.available === 'true' ? 
-                  <CheckCircle size={20} style={{...styles.inputIcon, color: '#10b981'}} /> : 
+                  <CheckCircle size={24} style={{...styles.inputIcon, color: '#10b981'}} /> : 
                   filters.available === 'false' ?
-                  <XCircle size={20} style={{...styles.inputIcon, color: '#ef4444'}} /> :
-                  <Car size={20} style={styles.inputIcon} />
+                  <XCircle size={24} style={{...styles.inputIcon, color: '#ef4444'}} /> :
+                  <Car size={24} style={styles.inputIcon} />
                 }
                 <select
                   name="available"
@@ -594,12 +841,12 @@ function Cars() {
           {loading ? (
             <div style={styles.loadingContainer}>
               <div style={styles.loadingSpinner}></div>
-              Chargement des véhicules...
+              Chargement des véhicules futuristes...
             </div>
           ) : cars.length === 0 ? (
             <div style={styles.emptyState}>
               <div style={styles.emptyStateIcon}>
-                <Car size={80} />
+                <Car size={100} />
               </div>
               <p style={styles.emptyStateText}>
                 Aucune voiture trouvée avec ces critères.
@@ -614,11 +861,18 @@ function Cars() {
                     style={{
                       ...styles.carCard,
                       ...(hoveredCard === car.id ? styles.carCardHover : {}),
-                      animationDelay: `${index * 0.1}s`
+                      animationDelay: `${index * 0.15}s`
                     }}
                     onMouseEnter={() => setHoveredCard(car.id)}
                     onMouseLeave={() => setHoveredCard(null)}
                   >
+                    <div 
+                      style={{
+                        ...styles.carCardGlow,
+                        ...(hoveredCard === car.id ? styles.carCardGlowActive : {})
+                      }}
+                    ></div>
+                    
                     <div style={styles.carImageContainer}>
                       <img
                         src={car.image_url}
@@ -628,6 +882,16 @@ function Cars() {
                           ...(hoveredCard === car.id ? styles.carImageHover : {})
                         }}
                       />
+                      {car.available ? (
+  <div style={styles.availableBadge}>
+    <CheckCircle size={16} /> Disponible
+  </div>
+) : (
+  <div style={styles.unavailableBadge}>
+    <XCircle size={16} /> Indisponible
+  </div>
+)}
+
                       <div 
                         style={{
                           ...styles.carImageOverlay,
@@ -636,15 +900,26 @@ function Cars() {
                       ></div>
                       
                       {/* Badge disponibilité */}
-                      <div style={styles.availableBadge}>
-                        <CheckCircle size={14} />
-                        Disponible
-                      </div>
+                      {car.available ? (
+  <div style={styles.availableBadge}>
+    <CheckCircle size={16} />
+    Disponible
+  </div>
+) : 
+
+
+(
+  <div style={styles.unavailableBadge}>
+    <XCircle size={16} />
+    Indisponible
+  </div>
+)}
+
                       
                       {/* Badge premium pour les voitures récentes */}
                       {car.year >= 2020 && (
                         <div style={styles.premiumBadge}>
-                          <Star size={14} />
+                          <Star size={16} />
                           Premium
                         </div>
                       )}
@@ -657,12 +932,12 @@ function Cars() {
                       
                       <div style={styles.carDetails}>
                         <div style={styles.carDetail}>
-                          <Calendar size={16} />
+                          <Calendar size={18} />
                           <span>Année {car.year}</span>
                         </div>
                         <div style={styles.carDetail}>
-                          <Zap size={16} />
-                          <span>Véhicule moderne</span>
+                          <Zap size={18} />
+                          <span>Technologie avancée</span>
                         </div>
                       </div>
 
@@ -675,27 +950,67 @@ function Cars() {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleBooking(car)}
-                        style={{
-                          ...styles.bookButton,
-                          ...(hoveredButton === `book-${car.id}` ? styles.bookButtonHover : {})
-                        }}
-                        onMouseEnter={() => setHoveredButton(`book-${car.id}`)}
-                        onMouseLeave={() => setHoveredButton(null)}
-                      >
-                        <div 
-                          style={{
-                            ...styles.bookButtonGlow,
-                            ...(hoveredButton === `book-${car.id}` ? styles.bookButtonGlowActive : {})
-                          }}
-                        ></div>
-                        <Car size={20} />
-                        Réserver Maintenant
-                      </button>
+                      {car.available ? (
+  <button
+    onClick={() => handleBooking(car)}
+    style={{
+      ...styles.bookButton,
+      ...(hoveredButton === `book-${car.id}` ? styles.bookButtonHover : {})
+    }}
+    onMouseEnter={() => setHoveredButton(`book-${car.id}`)}
+    onMouseLeave={() => setHoveredButton(null)}
+  >
+    <div 
+      style={{
+        ...styles.bookButtonGlow,
+        ...(hoveredButton === `book-${car.id}` ? styles.bookButtonGlowActive : {})
+      }}
+    ></div>
+    <Zap size={22} />
+    Réserver Maintenant
+  </button>
+) : (
+  <button
+    onClick={() => handleNotificationRequest(car)}
+    disabled={loadingNotifications.has(car.id) || notificationRequests.has(car.id)}
+    style={{
+      ...styles.bookButton,
+      ...(notificationRequests.has(car.id) ? styles.notificationRequestedButton : styles.notificationButton),
+      ...(hoveredButton === `notify-${car.id}` && !notificationRequests.has(car.id) && !loadingNotifications.has(car.id) ? styles.notificationButtonHover : {}),
+      ...(loadingNotifications.has(car.id) ? { opacity: 0.7, cursor: 'wait' } : {})
+    }}
+    onMouseEnter={() => !notificationRequests.has(car.id) && !loadingNotifications.has(car.id) && setHoveredButton(`notify-${car.id}`)}
+    onMouseLeave={() => setHoveredButton(null)}
+  >
+    <div 
+      style={{
+        ...styles.bookButtonGlow,
+        ...(hoveredButton === `notify-${car.id}` && !notificationRequests.has(car.id) ? styles.bookButtonGlowActive : {})
+      }}
+    ></div>
+    {loadingNotifications.has(car.id) ? (
+      <>
+        <div style={styles.loadingSpinner}></div>
+        Traitement...
+      </>
+    ) : notificationRequests.has(car.id) ? (
+      <>
+        <CheckCircle size={22} />
+        Notification demandée
+      </>
+    ) : (
+      <>
+        <Bell size={22} />
+        Me notifier si disponible
+      </>
+    )}
+  </button>
+)}
                     </div>
                   </div>
                 ))}
+            
+
               </div>
 
               {/* Pagination */}
@@ -712,7 +1027,7 @@ function Cars() {
                     onMouseEnter={() => filters.page > 1 && setHoveredButton('prev')}
                     onMouseLeave={() => setHoveredButton(null)}
                   >
-                    <ArrowLeft size={20} />
+                    <ArrowLeft size={22} />
                     Précédent
                   </button>
                   
@@ -732,38 +1047,60 @@ function Cars() {
                     onMouseLeave={() => setHoveredButton(null)}
                   >
                     Suivant
-                    <ArrowRight size={20} />
+                    <ArrowRight size={22} />
                   </button>
                 </div>
               )}
             </>
           )}
 
-          {/* Footer décoratif */}
+          {/* Footer décoratif futuriste */}
           <div style={{
             textAlign: 'center',
-            marginTop: '4rem',
-            padding: '2rem',
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            animation: 'float 8s ease-in-out infinite'
+            marginTop: '5rem',
+            padding: '3rem',
+            background: `
+              linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%),
+              linear-gradient(45deg, rgba(120, 119, 198, 0.1) 0%, transparent 50%, rgba(59, 130, 246, 0.1) 100%)
+            `,
+            backdropFilter: 'blur(25px)',
+            borderRadius: '32px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            animation: 'float 10s ease-in-out infinite',
+            position: 'relative',
+            overflow: 'hidden',
+            boxShadow: `
+              0 25px 50px rgba(0, 0, 0, 0.15),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1)
+            `
           }}>
-            <Car size={48} style={{ 
-              color: 'rgba(255, 255, 255, 0.8)', 
-              marginBottom: '1rem',
-              animation: 'sparkle 3s ease-in-out infinite'
-            }} />
-            <p style={{
-              color: 'rgba(255, 255, 255, 0.9)',
-              fontSize: '1.1rem',
-              fontWeight: '500',
-              margin: '0',
-              textShadow: '0 2px 10px rgba(0,0,0,0.2)'
-            }}>
-              Trouvez la voiture parfaite pour votre voyage
-            </p>
+            <div style={{
+              position: 'absolute',
+              top: '-50%',
+              left: '-50%',
+              width: '200%',
+              height: '200%',
+              background: 'conic-gradient(from 0deg, transparent, rgba(120, 119, 198, 0.1), transparent)',
+              animation: 'rotate 30s linear infinite',
+            }}></div>
+            <div style={{ position: 'relative', zIndex: 2 }}>
+              <Car size={60} style={{ 
+                color: 'rgba(255, 255, 255, 0.8)', 
+                marginBottom: '1.5rem',
+                animation: 'sparkle 4s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 30px rgba(120, 119, 198, 0.5))'
+              }} />
+              <p style={{
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontSize: '1.3rem',
+                fontWeight: '700',
+                margin: '0',
+                textShadow: '0 0 25px rgba(255,255,255,0.3)',
+                letterSpacing: '0.02em'
+              }}>
+                Explorez l'avenir de la mobilité avec notre flotte premium
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ClipboardList, User, History, Car, Trash2, Save, CreditCard, AlertTriangle, Sparkles, TrendingUp } from 'lucide-react';
 import { downloadContratPdf } from '../utils/downloadContrat';
+import { toast } from 'react-toastify';
 
 const styles = {
   container: {
@@ -419,7 +420,7 @@ function Dashboard() {
 
   useEffect(() => {
     if (!token) {
-      alert("Session expirée !");
+      toast.info("Session expirée !");
       navigate('/login');
       return;
     }
@@ -438,7 +439,7 @@ function Dashboard() {
         setPayments(resPayments.data);
 
       } catch (error) {
-        alert("Accès refusé ou session expirée !");
+        toast.info("Accès refusé ou session expirée !");
         localStorage.removeItem('token');
         navigate('/login');
       } finally {
@@ -455,7 +456,7 @@ function Dashboard() {
       await axiosInstance.delete(`/reservations/${reservationId}`);
       setReservations(reservations.filter(r => r.id !== reservationId));
     } catch {
-      alert("Erreur lors de l'annulation");
+      toast.error("Erreur lors de l'annulation");
     }
   };
 
@@ -467,9 +468,9 @@ function Dashboard() {
         phone: user.phone || null,
       });
       setUser(res.data);
-      alert("Profil mis à jour !");
+      toast.info("Profil mis à jour !");
     } catch {
-      alert("Erreur lors de la mise à jour du profil.");
+      toast.error("Erreur lors de la mise à jour du profil.");
     }
   };
 
@@ -480,10 +481,10 @@ function Dashboard() {
     try {
       await axiosInstance.delete(`/users/${user.id}`);
       localStorage.removeItem('token');
-      alert("Compte supprimé.");
+      toast.info("Compte supprimé.");
       navigate('/login');
     } catch {
-      alert("Erreur lors de la suppression.");
+      toast.error("Erreur lors de la suppression.");
     }
   };
 
@@ -558,17 +559,7 @@ function Dashboard() {
               <div style={styles.statNumber}>{payments.length}</div>
               <div style={styles.statLabel}>Paiements</div>
             </div>
-            <div 
-              style={{
-                ...styles.statCard,
-                ...(hoveredCard === 'total' ? styles.statCardHover : {})
-              }}
-              onMouseEnter={() => setHoveredCard('total')}
-              onMouseLeave={() => setHoveredCard(null)}
-            >
-              <div style={styles.statNumber}>{totalSpent.toLocaleString()}</div>
-              <div style={styles.statLabel}>FCFA dépensés</div>
-            </div>
+            
           </div>
 
           <section 
@@ -592,107 +583,132 @@ function Dashboard() {
               </div>
             ) : (
               <div style={styles.cardContainer}>
-                {reservations.map((r, index) => {
-                  const soldeRestant = Math.max((r.total_price ?? 0) - (r.deposit ?? 0), 0);
-                  return (
-                    <div 
-                      key={r.id} 
-                      style={{
-                        ...styles.card,
-                        ...(hoveredCard === `reservation-${r.id}` ? styles.cardHover : {}),
-                        animationDelay: `${index * 0.1}s`
-                      }}
-                      onMouseEnter={() => setHoveredCard(`reservation-${r.id}`)}
-                      onMouseLeave={() => setHoveredCard(null)}
-                    >
-                      <div style={styles.cardAccent}></div>
+               <div style={styles.cardContainer}>
+{reservations.map((r, index) => {
+  const totalPrice = Number(r.total_price ?? 0);
+  const caution    = Number(r.caution ?? 0);
 
-                      <div style={styles.formGroup}>
-                        <span style={styles.cardLabel}>Voiture</span>
-                        <span style={styles.cardValue}>{r.car_brand}</span>
-                      </div>
+  // ✅ Calculer le total payé pour cette réservation
+  const paiementsReservation = payments.filter(p => p.reservation_id === r.id);
+  const montantPaye = paiementsReservation.reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
-                      <div style={styles.formGroup}>
-                        <span style={styles.cardLabel}>Date</span>
-                        <span style={styles.cardValue}>{new Date(r.start_date).toLocaleDateString()}</span>
-                      </div>
+  // Montant restant
+  const soldeRestant = Math.max(totalPrice + caution - montantPaye, 0);
 
-                      <div style={styles.formGroup}>
-                        <span style={styles.cardLabel}>Statut</span>
-                        <span style={getStatusStyle(r.status)}>{r.status}</span>
-                      </div>
+  // Statut basé sur le paiement
+  const status = soldeRestant === 0
+    ? 'Soldé'
+    : (montantPaye === 0 ? 'En attente' : 'Payé partiellement');
 
-                      <div style={styles.formGroup}>
-                        <span style={styles.cardLabel}>Prix total</span>
-                        <span style={{ ...styles.cardValue, ...styles.priceHighlight }}>
-                          {(r.total_price ?? 0).toLocaleString()} FCFA
-                        </span>
-                      </div>
+  return (
+    <div 
+      key={r.id} 
+      style={{
+        ...styles.card,
+        ...(hoveredCard === `reservation-${r.id}` ? styles.cardHover : {}),
+        animationDelay: `${index * 0.1}s`
+      }}
+      onMouseEnter={() => setHoveredCard(`reservation-${r.id}`)}
+      onMouseLeave={() => setHoveredCard(null)}
+    >
+      <div style={styles.cardAccent}></div>
 
-                      <div style={styles.formGroup}>
-                        <span style={styles.cardLabel}>Montant payé</span>
-                        <span style={styles.cardValue}>{(r.deposit ?? 0).toLocaleString()} FCFA</span>
-                      </div>
+      <div style={styles.formGroup}>
+        <span style={styles.cardLabel}>Voiture</span>
+        <span style={styles.cardValue}>{r.car_brand || '---'}</span>
+      </div>
 
-                      <div style={styles.formGroup}>
-                        <span style={styles.cardLabel}>Solde restant</span>
-                        <span style={{ ...styles.cardValue, ...styles.soldeHighlight }}>
-                          {soldeRestant.toLocaleString()} FCFA
-                        </span>
-                      </div>
+      <div style={styles.formGroup}>
+        <span style={styles.cardLabel}>Date</span>
+        <span style={styles.cardValue}>
+          {r.start_date ? new Date(r.start_date).toLocaleDateString() : '---'}
+        </span>
+      </div>
 
-                      <div style={styles.cardFooter}>
-                        <div>
-                          {soldeRestant > 0 && r.is_validated ? (
-                            <button
-                              style={{ ...styles.btn, ...styles.btnSuccess }}
-                              onClick={() => navigate('/paiement', { state: { reservation: r } })}
-                              onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                              onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
-                            >
-                              <CreditCard size={16} />
-                              Payer le solde
-                            </button>
-                          ) : (
-                            <p style={{ color: '#f59e0b', fontStyle: 'italic', fontWeight: '600' }}>
-                              En attente de validation par l'administration.
-                            </p>
-                          )}
-                        </div>
+      <div style={styles.formGroup}>
+        <span style={styles.cardLabel}>Statut</span>
+        <span style={getStatusStyle(status)}>{status}</span>
+      </div>
 
-                        <div>
-                          {r.deposit > 0 ? (
-                            <p style={styles.cancelNote}>Impossible d'annuler</p>
-                          ) : (
-                            <button
-                              style={{ ...styles.btn, ...styles.btnDanger }}
-                              onClick={() => handleCancel(r.id)}
-                              onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
-                              onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
-                            >
-                              <Trash2 size={16} />
-                              Annuler
-                            </button>
-                
-                          )}
-                          
-                        </div>
-                        <div>
-{/* … dans <div style={styles.cardFooter}> … */}
+      <div style={styles.formGroup}>
+        <span style={styles.cardLabel}>Prix de la location</span>
+        <span style={{ ...styles.cardValue, ...styles.priceHighlight }}>
+          {totalPrice.toLocaleString()} FCFA
+        </span>
+      </div>
 
-{/* Bouton Télécharger le contrat */}
-{r.is_validated && (
-  <button onClick={() => downloadContratPdf(r.id)}>
-  Télécharger le contrat
-</button>
-)}
+      <div style={styles.formGroup}>
+        <span style={styles.cardLabel}>Caution</span>
+        <span style={styles.cardValue}>
+          {caution.toLocaleString()} FCFA
+        </span>
+      </div>
+
+      <div style={styles.formGroup}>
+        <span style={styles.cardLabel}>Montant payé</span>
+        <span style={styles.cardValue}>
+          {montantPaye.toLocaleString()} FCFA
+        </span>
+      </div>
+
+      <div style={styles.formGroup}>
+        <span style={styles.cardLabel}>Solde restant</span>
+        <span style={{ ...styles.cardValue, ...styles.soldeHighlight }}>
+          {soldeRestant.toLocaleString()} FCFA
+        </span>
+      </div>
+
+      <div style={styles.cardFooter}>
+        <div>
+          {soldeRestant > 0 && r.is_validated ? (
+            <button
+              style={{ ...styles.btn, ...styles.btnSuccess }}
+              onClick={() => navigate('/paiement', { state: { reservation: r, montantRestant: soldeRestant } })}
+              onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+              onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+            >
+              <CreditCard size={16} />
+              Payer le solde)
+            </button>
+          ) : (
+            <p style={{ color: '#f59e0b', fontStyle: 'italic', fontWeight: '600' }}>
+              {soldeRestant === 0 ? 'Solde réglé' : ''}
+            </p>
+          )}
+        </div>
+
+        <div>
+          {montantPaye > 0 ? (
+            <p style={styles.cancelNote}>Impossible d'annuler</p>
+          ) : (
+            <button
+              style={{ ...styles.btn, ...styles.btnDanger }}
+              onClick={() => handleCancel(r.id)}
+              onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+              onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+            >
+              <Trash2 size={16} />
+              Annuler
+            </button>
+          )}
+        </div>
+
+        <div>
+          {r.is_validated && (
+            <button onClick={() => downloadContratPdf(r.id)}>
+              Télécharger le contrat
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+})}
 
 
-                          </div>
-                      </div>
-                    </div>
-                  );
-                })}
+
+</div>
+
               </div>
             )}
           </section>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Phone, UserPlus, Sparkles, Shield, Eye, EyeOff, CheckCircle, AlertCircle, Car } from 'lucide-react';
+import { User, Mail, Lock, Phone, UserPlus, Sparkles, Shield, Eye, EyeOff, CheckCircle, AlertCircle, Car, FileText, ExternalLink } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 
 const styles = {
@@ -121,7 +121,6 @@ const styles = {
     transition: 'color 0.3s ease',
   },
   inputIconFocused: {
-    color: '#3b82f6',
   },
   input: {
     width: '100%',
@@ -140,7 +139,6 @@ const styles = {
   inputFocused: {
     borderColor: '#3b82f6',
     boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.2), 0 8px 20px rgba(0, 0, 0, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     transform: 'translateY(-2px)',
   },
   inputPlaceholder: {
@@ -188,6 +186,71 @@ const styles = {
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: '0.25rem',
     textAlign: 'center',
+  },
+  termsSection: {
+    padding: '1.5rem',
+    background: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: '16px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    marginTop: '0.5rem',
+  },
+  checkboxWrapper: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '0.75rem',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    padding: '0.5rem',
+    borderRadius: '12px',
+  },
+  checkboxWrapperHover: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  checkbox: {
+    position: 'relative',
+    width: '20px',
+    height: '20px',
+    borderRadius: '6px',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    background: 'transparent',
+    transition: 'all 0.3s ease',
+    flexShrink: 0,
+    marginTop: '2px',
+  },
+  checkboxChecked: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#3b82f6',
+    boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.2)',
+  },
+  checkboxIcon: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
+  },
+  checkboxIconVisible: {
+    opacity: 1,
+  },
+  termsText: {
+    fontSize: '0.9rem',
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: '1.5',
+    margin: '0',
+  },
+  termsLink: {
+    color: '#3b82f6',
+    textDecoration: 'none',
+    fontWeight: '600',
+    transition: 'all 0.3s ease',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+  },
+  termsLinkHover: {
+    color: '#60a5fa',
+    textDecoration: 'underline',
   },
   submitButton: {
     width: '100%',
@@ -344,6 +407,11 @@ const cssAnimations = `
     0%, 100% { opacity: 0.3; transform: scale(1); }
     50% { opacity: 0.6; transform: scale(1.1); }
   }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 `;
 
 function Register() {
@@ -362,6 +430,9 @@ function Register() {
   const [notification, setNotification] = useState(null);
   const [hoveredButton, setHoveredButton] = useState(false);
   const [hoveredLoginLink, setHoveredLoginLink] = useState(false);
+  const [hoveredCheckbox, setHoveredCheckbox] = useState(false);
+  const [hoveredTermsLink, setHoveredTermsLink] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -400,8 +471,27 @@ function Register() {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  const isFormValid = () => {
+    return formData.name && 
+           formData.email && 
+           formData.password && 
+           acceptedTerms &&
+           passwordStrength >= 2; // Minimum force de mot de passe requise
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!acceptedTerms) {
+      showNotification('Vous devez accepter les termes et conditions', 'error');
+      return;
+    }
+
+    if (passwordStrength < 2) {
+      showNotification('Le mot de passe est trop faible', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Définir le rôle automatiquement
@@ -615,22 +705,83 @@ function Register() {
               </div>
             </div>
 
+            {/* Section Termes et Conditions */}
+            <div style={styles.termsSection}>
+              <div 
+                style={{
+                  ...styles.checkboxWrapper,
+                  ...(hoveredCheckbox ? styles.checkboxWrapperHover : {})
+                }}
+                onClick={() => setAcceptedTerms(!acceptedTerms)}
+                onMouseEnter={() => setHoveredCheckbox(true)}
+                onMouseLeave={() => setHoveredCheckbox(false)}
+              >
+                <div style={{
+                  ...styles.checkbox,
+                  ...(acceptedTerms ? styles.checkboxChecked : {})
+                }}>
+                  <CheckCircle 
+                    size={14} 
+                    color="white"
+                    style={{
+                      ...styles.checkboxIcon,
+                      ...(acceptedTerms ? styles.checkboxIconVisible : {})
+                    }}
+                  />
+                </div>
+                <p style={styles.termsText}>
+                  J'accepte les{' '}
+                  <a 
+                    href="/terms" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      ...styles.termsLink,
+                      ...(hoveredTermsLink ? styles.termsLinkHover : {})
+                    }}
+                    onMouseEnter={() => setHoveredTermsLink(true)}
+                    onMouseLeave={() => setHoveredTermsLink(false)}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <FileText size={14} />
+                    Termes et Conditions
+                    <ExternalLink size={12} />
+                  </a>
+                  {' '}et la{' '}
+                  <a 
+                    href="/privacy" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      ...styles.termsLink,
+                      ...(hoveredTermsLink ? styles.termsLinkHover : {})
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Politique de Confidentialité
+                    <ExternalLink size={12} />
+                  </a>
+                  . Je consens au traitement de mes données personnelles conformément à ces conditions.
+                </p>
+              </div>
+            </div>
+
             {/* Bouton de soumission */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isFormValid()}
               style={{
                 ...styles.submitButton,
-                ...(hoveredButton && !isSubmitting ? styles.submitButtonHover : {}),
-                ...(isSubmitting ? styles.submitButtonDisabled : {})
+                ...(hoveredButton && isFormValid() && !isSubmitting ? styles.submitButtonHover : {}),
+                ...(isSubmitting || !isFormValid() ? styles.submitButtonDisabled : {})
               }}
-              onMouseEnter={() => !isSubmitting && setHoveredButton(true)}
+              onMouseEnter={() => isFormValid() && !isSubmitting && setHoveredButton(true)}
               onMouseLeave={() => setHoveredButton(false)}
             >
               <div 
                 style={{
                   ...styles.submitButtonGlow,
-                  ...(hoveredButton && !isSubmitting ? styles.submitButtonGlowActive : {})
+                  ...(hoveredButton && isFormValid() && !isSubmitting ? styles.submitButtonGlowActive : {})
                 }}
               ></div>
               {isSubmitting ? (

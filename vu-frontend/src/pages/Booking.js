@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -8,6 +7,8 @@ import {
 } from 'lucide-react';
 import { getToken } from '../utils/auth';
 import MapSelector from '../components/MapSelector';
+import React, { useEffect } from "react";
+import { useState } from 'react';
 
 const styles = {
   container: {
@@ -73,7 +74,7 @@ const styles = {
     fontSize: '2.5rem',
     fontWeight: '800',
     margin: '0 0 0.5rem 0',
-    textShadow: '0 4px 20px rgba(0,0,0,0.3)',
+    textShadow: '0 4px 20px rgba(241, 237, 237, 0.3)',
     background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
     backgroundClip: 'text',
     WebkitBackgroundClip: 'text',
@@ -338,6 +339,78 @@ const styles = {
     right: '5%',
     animationDelay: '1s',
   },
+  documentRow: {
+  display: 'flex',
+  gap: '1rem',      // espace entre les boutons
+  flexWrap: 'wrap', // permet de passer à la ligne si l'écran est petit
+},
+
+documentGroup: {
+  flex: '1 1 45%',       // chaque groupe prend max 45% et peut descendre à la ligne
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: '200px',     // empêche que ça devienne trop petit
+},
+
+documentLabel: {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginBottom: '0.5rem',
+  fontWeight: '500',
+},
+
+documentFileInput: {
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: '1rem',
+  borderRadius: '16px',
+  border: '2px dashed rgba(255, 255, 255, 0.3)',
+  fontSize: '1rem',
+  fontWeight: '500',
+  background: 'rgba(255, 255, 255, 0.05)',
+  backdropFilter: 'blur(10px)',
+  color: 'rgba(255, 255, 255, 0.8)',
+  cursor: 'pointer',
+  textAlign: 'center',
+}, 
+documentRow: {
+  display: 'flex',
+  gap: '1rem',      // espace entre les boutons
+  flexWrap: 'wrap', // permet de passer à la ligne si l'écran est petit
+},
+
+documentGroup: {
+  flex: '1 1 45%',       // chaque groupe prend max 45% et peut descendre à la ligne
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: '200px',     // empêche que ça devienne trop petit
+},
+
+documentLabel: {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginBottom: '0.5rem',
+  fontWeight: '500',
+},
+
+documentFileInput: {
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: '1rem',
+  borderRadius: '16px',
+  border: '2px dashed rgba(255, 255, 255, 0.3)',
+  fontSize: '1rem',
+  fontWeight: '500',
+  background: 'rgba(255, 255, 255, 0.05)',
+  backdropFilter: 'blur(10px)',
+  color: 'rgba(255, 255, 255, 0.8)',
+  cursor: 'pointer',
+  textAlign: 'center',
+}
+
+
 };
 
 // Animations CSS
@@ -441,7 +514,7 @@ function Booking() {
   }, [userId]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/cars')
+    axios.get('http://localhost:5000/api/cars/cars')
       .then(response => {
         const cars = response.data.cars;
         setCarsData(cars);
@@ -549,111 +622,133 @@ function Booking() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (formData.modeDelivery === 'livraison' && formData.address.trim() === '') {
-      showNotification("Veuillez renseigner l'adresse de livraison.", 'error');
+  // 1️⃣ Vérifier adresse si mode livraison
+  if (formData.modeDelivery === 'livraison' && formData.address.trim() === '') {
+    showNotification("Veuillez renseigner l'adresse de livraison.", 'error');
+    return;
+  }
+
+  // 2️⃣ Vérifier heure si livraison
+  if (formData.modeDelivery === 'livraison') {
+    if (!formData.time) {
+      showNotification("Veuillez sélectionner une heure de livraison.", 'error');
+      return;
+    }
+    const [hourStr, minuteStr] = formData.time.split(':');
+    const hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+
+    if (isNaN(hour) || isNaN(minute)) {
+      showNotification("Heure de livraison invalide.", 'error');
       return;
     }
 
-    if (formData.modeDelivery === 'livraison') {
-      if (!formData.time) {
-        showNotification("Veuillez sélectionner une heure de livraison.", 'error');
-        return;
-      }
-      const [hourStr, minuteStr] = formData.time.split(':');
-      const hour = parseInt(hourStr, 10);
-      const minute = parseInt(minuteStr, 10);
+    const totalMinutes = hour * 60 + minute;
+    const minMinutes = 8 * 60;
+    const maxMinutes = 19 * 60 + 30;
 
-      if (isNaN(hour) || isNaN(minute)) {
-        showNotification("Heure de livraison invalide.", 'error');
-        return;
-      }
-
-      const totalMinutes = hour * 60 + minute;
-      const minMinutes = 8 * 60;
-      const maxMinutes = 19 * 60 + 30;
-
-      if (totalMinutes < minMinutes || totalMinutes > maxMinutes) {
-        showNotification("Pour une livraison, l'heure doit être comprise entre 08:00 et 19:30.", 'error');
-        return;
-      }
+    if (totalMinutes < minMinutes || totalMinutes > maxMinutes) {
+      showNotification("Pour une livraison, l'heure doit être comprise entre 08:00 et 19:30.", 'error');
+      return;
     }
+  }
 
-    const car = carsData.find(c => c.id === formData.carId);
-    if (!car) {
-      showNotification('Veuillez sélectionner un véhicule valide.', 'error');
+  // 3️⃣ Vérifier véhicule
+  const car = carsData.find(c => c.id === formData.carId);
+  if (!car) {
+    showNotification('Veuillez sélectionner un véhicule valide.', 'error');
+    return;
+  }
+
+  try {
+    const token = getToken();
+    if (!token) {
+      showNotification("Vous devez être connecté pour réserver.", 'error');
+      navigate('/login');
       return;
     }
 
-    try {
-      const token = getToken();
-      if (!token) {
-        showNotification("Vous devez être connecté pour réserver.", 'error');
-        navigate('/login');
-        return;
-      }
-
-      const startDateObj = new Date(formData.date);
-      const endDateObj = new Date(startDateObj);
-      endDateObj.setDate(endDateObj.getDate() + formData.duration);
-
-      const start_date = startDateObj.toISOString().split('T')[0];
-      const end_date = endDateObj.toISOString().split('T')[0];
-
-      const available = await checkAvailability(car.id, start_date, end_date);
-      if (!available) {
-        showNotification("Cette voiture est déjà réservée pour cette période.", 'error');
-        return;
-      }
-
-      if (isVerified === false) {
-        const canProceed = await uploadDocuments();
-        if (!canProceed) return;
-      }
-
-      const deposit = formData.paymentOption === 'deposit'
-        ? Math.round(formData.totalPrice * 0.75)
-        : 0;
-      const caution = Math.round(formData.totalPrice * 0.2);
-
-      const reservationPayload = {
-        car_id: car.id,
-        start_date,
-        end_date,
-        total_price: formData.totalPrice,
-        deposit,
-        caution,
-        status: 'En attente',
-      };
-
-      const response = await axios.post(
-        'http://localhost:5000/api/reservations',
-        reservationPayload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      showNotification("✅ Réservation enregistrée ! Vous serez contacté pour validation.", 'success');
-
-      // Reset formulaire
-      setFormData({
-        name: '', email: '', date: '', time: '',
-        modeDelivery: 'retrait', address: '', duration: 1,
-        carId: '', totalPrice: 0, deposit: 0,
-        status: 'En attente', paymentOption: '',
-      });
-      setBirthDate('');
-      setDrivingLicense(null);
-      setIdentityDoc(null);
-
-      setTimeout(() => navigate('/dashboard'), 2000);
-
-    } catch (err) {
-      console.error('Erreur lors de la réservation:', err);
-      showNotification('Erreur lors de la réservation.', 'error');
+    // 4️⃣ Vérifier que la date n’est pas dans le passé
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // on ignore l’heure
+    const startDateObj = new Date(formData.date);
+    if (startDateObj < today) {
+      showNotification("❌ Vous ne pouvez pas réserver à une date passée.", 'error');
+      return;
     }
-  };
+
+    // 5️⃣ Calcul fin
+    const endDateObj = new Date(startDateObj);
+    endDateObj.setDate(endDateObj.getDate() + formData.duration);
+
+    const start_date = startDateObj.toISOString().split('T')[0];
+    const end_date = endDateObj.toISOString().split('T')[0];
+
+    // 6️⃣ Vérifier dispo
+    const available = await checkAvailability(car.id, start_date, end_date);
+    if (!available) {
+      showNotification("Cette voiture est déjà réservée pour cette période.", 'error');
+      return;
+    }
+
+    // 7️⃣ Vérifier documents si pas validé
+    if (isVerified === false) {
+      const canProceed = await uploadDocuments();
+      if (!canProceed) return;
+    }
+
+    // 8️⃣ Dépôt & caution
+    const deposit = formData.paymentOption === 'deposit'
+      ? Math.round(formData.totalPrice * 0.75)
+      : 0;
+    const caution = Math.round(formData.totalPrice * 0.2);
+
+    // 9️⃣ Construire le payload COMPLET
+    const reservationPayload = {
+      car_id: car.id,
+      start_date,
+      end_date,
+      total_price: formData.totalPrice,
+      deposit,
+      caution,
+      status: 'En attente',
+      mode_delivery: formData.modeDelivery,  // ✅ ajouté
+      address: formData.modeDelivery === 'livraison' ? formData.address : null, // ✅ ajouté
+      delivery_time: formData.modeDelivery === 'livraison' ? formData.time : null, // ✅ ajouté
+    };
+
+    const response = await axios.post(
+      'http://localhost:5000/api/reservations',
+      reservationPayload,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    showNotification("✅ Réservation enregistrée ! Vous serez contacté pour validation.", 'success');
+
+    // 🔄 Reset
+    setFormData({
+      name: '', email: '', date: '', time: '',
+      modeDelivery: 'retrait', address: '', duration: 1,
+      carId: '', totalPrice: 0, deposit: 0,
+      status: 'En attente', paymentOption: '',
+    });
+    setBirthDate('');
+    setDrivingLicense(null);
+    setIdentityDoc(null);
+
+    setTimeout(() => navigate('/dashboard'), 2000);
+
+  } catch (err) {
+    console.error('Erreur lors de la réservation:', err);
+    showNotification('Erreur lors de la réservation.', 'error');
+  }
+};
+
+
+
 
   if (isVerified === null) {
     return (
@@ -810,18 +905,20 @@ function Booking() {
                       }} 
                     />
                     <input
-                      type="date"
-                      name="date"
-                      value={formData.date}
-                      onChange={handleChange}
-                      onFocus={() => setFocusedField('date')}
-                      onBlur={() => setFocusedField(null)}
-                      style={{
-                        ...styles.input,
-                        ...(focusedField === 'date' ? styles.inputFocused : {})
-                      }}
-                      required
+                    type="date"
+                    name="date"
+                    value={formData.date}
+                    min={new Date().toISOString().split("T")[0]} // ✅ bloque les dates passées
+                    onChange={handleChange}
+                    onFocus={() => setFocusedField('date')}
+                    onBlur={() => setFocusedField(null)}
+                    style={{
+                      ...styles.input,
+                      ...(focusedField === 'date' ? styles.inputFocused : {})
+                    }}
+                    required
                     />
+
                   </div>
                 </div>
 
@@ -1054,37 +1151,42 @@ function Booking() {
                   </div>
                 </div>
 
-                <div style={styles.inputRow}>
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>
-                      <Upload size={16} />
-                      Permis de conduire
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(e) => setDrivingLicense(e.target.files[0])}
-                      style={styles.fileInput}
-                      required
-                    />
-                  </div>
+             <div style={styles.documentRow}>
+  <div style={styles.documentGroup}>
+    <label style={styles.documentLabel}>
+      <Upload size={16} />
+      Permis de conduire
+    </label>
+    <input
+      type="file"
+      accept="image/*,application/pdf"
+      onChange={(e) => setDrivingLicense(e.target.files[0])}
+      style={styles.documentFileInput}
+      required
+    />
+  </div>
 
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>
-                      <Upload size={16} />
-                      Pièce d'identité
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(e) => setIdentityDoc(e.target.files[0])}
-                      style={styles.fileInput}
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+  <div style={styles.documentGroup}>
+    <label style={styles.documentLabel}>
+      <Upload size={16} />
+      Pièce d'identité
+    </label>
+    <input
+      type="file"
+      accept="image/*,application/pdf"
+      onChange={(e) => setIdentityDoc(e.target.files[0])}
+      style={styles.documentFileInput}
+      required
+    />
+  </div>
+</div>
+
+      </div>
+    )}
+
+
+
+
 
             {/* Message de vérification */}
             {isVerified === true && (

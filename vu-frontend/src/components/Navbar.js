@@ -172,7 +172,7 @@ function Navbar() {
                 transition={{ duration: 0.2 }}
               >
                 <LogOut size={18} />
-                <span>Déconnexion</span>
+                <span></span>
               </motion.button>
             </>
           ) : (

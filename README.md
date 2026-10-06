@@ -1,3 +1,5 @@
+## Built a full-stack web application for managing the end-to-end car rental process, from vehicle availability and reservations to payments, contracts, and deliveries. Designed to centralize business operations, improve transaction traceability, and streamline interactions between customers, agents, and administrators.
+
 ## Flotte de voiture
 ![](screenshots/localhost_3000_dashboard.png)
 # Getting Started with Create React App
